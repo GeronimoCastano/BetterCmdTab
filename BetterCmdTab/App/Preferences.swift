@@ -864,6 +864,11 @@ final class Preferences: ObservableObject {
 
     /// Seeded as a first-run App rule (show only with open windows).
     static let finderBundleID = "com.apple.finder"
+    /// Personal-build migration only. Kept outside the exportable `Switcher.`
+    /// namespace so it never leaks into portable config files.
+    private static let personalChatGPTRuleMarker = "Personal.chatGPTPetWindowRule.v1"
+    static let chatGPTBundleID = "com.openai.codex"
+    static let codexPetCompositionTitle = "Codex Pet Composition Surface"
 
     static let defaultRevealDelayMs = 100
     nonisolated static let revealDelayRange: ClosedRange<Int> = 40...500
@@ -2465,6 +2470,27 @@ final class Preferences: ObservableObject {
         normalizeScopes((raw ?? []).map { SwitchScope(rawValue: $0) ?? .allAppsAllSpaces })
     }
 
+    /// Personal-build default: ChatGPT keeps ordinary windows while its
+    /// level-3 Codex Pet surfaces stay out of the window switcher. The title
+    /// fragment is a second, narrow guard for composition surfaces if their
+    /// WindowServer level changes. Existing hide/shortcut choices are retained.
+    static func applyingPersonalChatGPTRule(to exceptions: [AppException]) -> [AppException] {
+        var result = exceptions
+        if let index = result.firstIndex(where: { $0.bundleID == chatGPTBundleID }) {
+            result[index].windowLevel = .normalOnly
+            result[index].windowTitleContains = AppException.cleanedTitleFragments(
+                result[index].windowTitleContains + [codexPetCompositionTitle]
+            )
+        } else {
+            result.append(AppException(
+                bundleID: chatGPTBundleID,
+                windowLevel: .normalOnly,
+                windowTitleContains: [codexPetCompositionTitle]
+            ))
+        }
+        return result
+    }
+
 
     private init() {
         let defaults = UserDefaults.standard
@@ -2511,17 +2537,23 @@ final class Preferences: ObservableObject {
         // entries, and seed Finder to "show only with open windows". Persisted
         // immediately because `CatalogFilter` reads the new key from UserDefaults
         // off-main and never sees the legacy key.
+        var loadedExceptions: [AppException]
         if let stored = defaults.array(forKey: Keys.appExceptions) as? [[String: Any]] {
-            self.appExceptions = stored.compactMap(AppException.init(dictionary:))
+            loadedExceptions = stored.compactMap(AppException.init(dictionary:))
         } else {
             var initial = (defaults.stringArray(forKey: Keys.legacyExcludedBundleIDs) ?? [])
                 .map { AppException(bundleID: $0, hide: .always, ignore: .never) }
             if !initial.contains(where: { $0.bundleID == Self.finderBundleID }) {
                 initial.append(AppException(bundleID: Self.finderBundleID, hide: .whenNoWindows, ignore: .never))
             }
-            self.appExceptions = initial
-            defaults.set(initial.map(\.dictionary), forKey: Keys.appExceptions)
+            loadedExceptions = initial
         }
+        if !defaults.bool(forKey: Self.personalChatGPTRuleMarker) {
+            loadedExceptions = Self.applyingPersonalChatGPTRule(to: loadedExceptions)
+            defaults.set(true, forKey: Self.personalChatGPTRuleMarker)
+        }
+        self.appExceptions = loadedExceptions
+        defaults.set(loadedExceptions.map(\.dictionary), forKey: Keys.appExceptions)
         let rawQuickJumps = defaults.array(forKey: Keys.quickJumpMappings) as? [[String: String]] ?? []
         let storedQuickJumps = rawQuickJumps.compactMap(QuickJumpMapping.init(dictionary:))
         let normalizedQuickJumps = Self.normalizeQuickJumpMappings(storedQuickJumps)

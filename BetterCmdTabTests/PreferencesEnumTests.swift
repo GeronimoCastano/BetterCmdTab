@@ -309,6 +309,28 @@ struct PreferencesEnumTests {
         #expect(AppException(dictionary: ["hide": "always"]) == nil)
         #expect(AppException(dictionary: ["bundleID": ""]) == nil)
     }
+
+    @Test("personal ChatGPT rule preserves existing choices and is idempotent")
+    @MainActor
+    func personalChatGPTRule() {
+        let existing = AppException(
+            bundleID: Preferences.chatGPTBundleID,
+            hide: .whenNoWindows,
+            ignore: .whenFullscreen,
+            windowTitleContains: ["Existing"]
+        )
+        let once = Preferences.applyingPersonalChatGPTRule(to: [existing])
+        let rule = once[0]
+        #expect(rule.hide == .whenNoWindows)
+        #expect(rule.ignore == .whenFullscreen)
+        #expect(rule.windowLevel == .normalOnly)
+        #expect(rule.windowTitleContains == ["Existing", Preferences.codexPetCompositionTitle])
+        #expect(Preferences.applyingPersonalChatGPTRule(to: once) == once)
+
+        let inserted = Preferences.applyingPersonalChatGPTRule(to: [])
+        #expect(inserted.count == 1)
+        #expect(inserted[0].bundleID == Preferences.chatGPTBundleID)
+    }
 }
 
 @Suite("BetterShortcuts integration")
