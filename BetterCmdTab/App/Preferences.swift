@@ -866,7 +866,7 @@ final class Preferences: ObservableObject {
     static let finderBundleID = "com.apple.finder"
     /// Personal-build migration only. Kept outside the exportable `Switcher.`
     /// namespace so it never leaks into portable config files.
-    private static let personalChatGPTRuleMarker = "Personal.chatGPTPetWindowRule.v1"
+    private static let personalChatGPTRuleMarker = "Personal.chatGPTPetWindowRule.v2"
     static let chatGPTBundleID = "com.openai.codex"
     static let codexPetCompositionTitle = "Codex Pet Composition Surface"
 
@@ -2491,6 +2491,13 @@ final class Preferences: ObservableObject {
         return result
     }
 
+    /// XCTest loads the app target into a test host that shares the Debug
+    /// bundle's defaults domain. Never consume a one-time personal migration
+    /// marker there; only an actual app launch may do that.
+    private static var isRunningTests: Bool {
+        NSClassFromString("XCTestCase") != nil
+    }
+
 
     private init() {
         let defaults = UserDefaults.standard
@@ -2548,7 +2555,7 @@ final class Preferences: ObservableObject {
             }
             loadedExceptions = initial
         }
-        if !defaults.bool(forKey: Self.personalChatGPTRuleMarker) {
+        if !Self.isRunningTests, !defaults.bool(forKey: Self.personalChatGPTRuleMarker) {
             loadedExceptions = Self.applyingPersonalChatGPTRule(to: loadedExceptions)
             defaults.set(true, forKey: Self.personalChatGPTRuleMarker)
         }
