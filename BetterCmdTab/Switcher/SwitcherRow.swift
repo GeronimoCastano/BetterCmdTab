@@ -28,6 +28,9 @@ struct SwitcherRow {
     /// no window (placeholder / launchable / recently-closed). Lets MRU sorting
     /// avoid re-resolving the id via `_AXUIElementGetWindow` on every reorder.
     let cgWindowID: CGWindowID
+    /// WindowServer level of the backing window. Nil means the level was not
+    /// available in the snapshot and must be treated as switchable.
+    let windowLevel: Int?
     let windowTitle: String
     let isMinimized: Bool
     let isFullscreen: Bool
@@ -73,12 +76,14 @@ struct SwitcherRow {
         tabs: [AXUIElement] = [],
         tabWindows: [TabWindowRef] = [],
         cgWindowID: CGWindowID = 0,
+        windowLevel: Int? = nil,
         browserTab: BrowserTabRef? = nil,
         isTabSibling: Bool = false
     ) {
         self.subject = .running(app)
         self.window = window
         self.cgWindowID = cgWindowID
+        self.windowLevel = windowLevel
         self.windowTitle = windowTitle
         self.isMinimized = isMinimized
         self.isFullscreen = isFullscreen
@@ -104,6 +109,7 @@ struct SwitcherRow {
             tabs: w.tabs,
             tabWindows: w.tabWindows,
             cgWindowID: w.cgWindowID,
+            windowLevel: w.windowLevel,
             isTabSibling: w.isTabSibling
         )
     }
@@ -113,6 +119,7 @@ struct SwitcherRow {
         self.subject = .launchable(launchable)
         self.window = nil
         self.cgWindowID = 0
+        self.windowLevel = nil
         self.windowTitle = ""
         self.isMinimized = false
         self.isFullscreen = false
@@ -129,6 +136,7 @@ struct SwitcherRow {
         self.subject = .recentlyClosed(entry)
         self.window = nil
         self.cgWindowID = 0
+        self.windowLevel = nil
         self.windowTitle = entry.title
         self.isMinimized = false
         self.isFullscreen = false
@@ -156,6 +164,7 @@ struct SwitcherRow {
             tabs: tabs,
             tabWindows: tabWindows,
             cgWindowID: cgWindowID,
+            windowLevel: windowLevel,
             browserTab: browserTab,
             isTabSibling: isTabSibling
         )
@@ -180,6 +189,7 @@ struct SwitcherRow {
                 isMinimized: isMinimized,
                 isFullscreen: isFullscreen,
                 cgWindowID: cgWindowID,
+                windowLevel: windowLevel,
                 browserTab: BrowserTabRef(
                     index: i,
                     parentTitle: parentTitle,
@@ -223,6 +233,7 @@ struct SwitcherRow {
             isMinimized: isMinimized,
             isFullscreen: isFullscreen,
             cgWindowID: cgWindowID,
+            windowLevel: windowLevel,
             browserTab: nil
         )
     }

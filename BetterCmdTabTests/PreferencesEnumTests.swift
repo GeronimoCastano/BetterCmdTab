@@ -285,7 +285,7 @@ struct PreferencesEnumTests {
 
     @Test("AppException round-trips through its stored dictionary")
     func appExceptionDictionary() {
-        let original = AppException(bundleID: "com.x", hide: .whenNoWindows, ignore: .whenFullscreen)
+        let original = AppException(bundleID: "com.x", hide: .whenNoWindows, ignore: .whenFullscreen, windowLevel: .normalOnly)
         #expect(AppException(dictionary: original.dictionary) == original)
 
         // Missing modes fall back to the neutral defaults.

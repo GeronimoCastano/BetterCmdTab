@@ -348,6 +348,9 @@ enum ConfigSchemaDocs {
                     "ignore": ConfigSettingDoc(
                         "string", "Whether the switcher shortcut is passed through to this app instead of opening the panel.",
                         values: ConfigValues(IgnoreShortcutsMode.self, \.displayName)),
+                    "windowLevel": ConfigSettingDoc(
+                        "string", "Whether all app windows or only normal-level windows appear in the switcher.",
+                        values: ConfigValues(WindowLevelMode.self, \.displayName)),
                 ],
                 required: ["bundleID"])),
         "excludedBundleIDs": ConfigSettingDoc(

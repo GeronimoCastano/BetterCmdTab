@@ -14676,6 +14676,33 @@
           }
         }
       }
+    },
+    "Choose whether floating panels and overlay surfaces from this app appear in the switcher." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Lege fest, ob schwebende Bedienfelder und Overlay-Flächen dieser App im Umschalter erscheinen." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Elige si los paneles flotantes y las superficies superpuestas de esta app aparecen en el selector." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Choisissez si les panneaux flottants et les surfaces de superposition de cette app apparaissent dans le sélecteur." } },
+        "pl" : { "stringUnit" : { "state" : "translated", "value" : "Określ, czy pływające panele i powierzchnie nakładek tej aplikacji mają pojawiać się w przełączniku." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选择是否在切换器中显示此应用的浮动面板和叠加层。" } }
+      }
+    },
+    "Controls which kinds of windows appear for this app.\n\n• All windows — includes normal windows and floating panels.\n• Normal only — hides known floating panels and overlay surfaces while keeping ordinary windows. Unknown window levels remain visible." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Legt fest, welche Fensterarten für diese App erscheinen.\n\n• Alle Fenster — umfasst normale Fenster und schwebende Bedienfelder.\n• Nur normale — blendet bekannte schwebende Bedienfelder und Overlay-Flächen aus, behält aber gewöhnliche Fenster bei. Fenster mit unbekannter Ebene bleiben sichtbar." } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Controla qué tipos de ventanas aparecen para esta app.\n\n• Todas las ventanas — incluye ventanas normales y paneles flotantes.\n• Solo normales — oculta paneles flotantes y superficies superpuestas conocidas, pero conserva las ventanas normales. Las ventanas con nivel desconocido siguen visibles." } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Contrôle les types de fenêtres affichés pour cette app.\n\n• Toutes les fenêtres — inclut les fenêtres normales et les panneaux flottants.\n• Fenêtres normales uniquement — masque les panneaux flottants et surfaces de superposition connus tout en conservant les fenêtres ordinaires. Les fenêtres dont le niveau est inconnu restent visibles." } },
+        "pl" : { "stringUnit" : { "state" : "translated", "value" : "Określa, jakie rodzaje okien tej aplikacji są wyświetlane.\n\n• Wszystkie okna — obejmuje zwykłe okna i pływające panele.\n• Tylko zwykłe — ukrywa znane pływające panele i powierzchnie nakładek, pozostawiając zwykłe okna. Okna o nieznanym poziomie pozostają widoczne." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "控制此应用显示哪些类型的窗口。\n\n• 所有窗口 — 包括普通窗口和浮动面板。\n• 仅普通窗口 — 隐藏已知的浮动面板和叠加层，同时保留普通窗口。窗口层级未知时仍会显示。" } }
+      }
+    },
+    "Normal only" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Nur normale" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Solo normales" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Fenêtres normales uniquement" } },
+        "pl" : { "stringUnit" : { "state" : "translated", "value" : "Tylko zwykłe" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "仅普通窗口" } }
+      }
     }
   },
   "version" : "1.0"

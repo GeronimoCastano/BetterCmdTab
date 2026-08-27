@@ -846,6 +846,7 @@ struct SettingsPortabilityTests {
         #expect(rule["additionalProperties"] as? Bool == false)
         #expect(ruleProperties["hide"]?["enum"] as? [String] == HideWindowsMode.allCases.map(\.rawValue))
         #expect(ruleProperties["ignore"]?["enum"] as? [String] == IgnoreShortcutsMode.allCases.map(\.rawValue))
+        #expect(ruleProperties["windowLevel"]?["enum"] as? [String] == WindowLevelMode.allCases.map(\.rawValue))
 
         // Overrides are a plist [String: String]: every value is the *string*
         // form of the global setting, and unknown keys are carried through.

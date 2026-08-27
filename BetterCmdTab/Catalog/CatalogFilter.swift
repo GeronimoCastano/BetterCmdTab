@@ -16,6 +16,8 @@ enum CatalogFilter {
         /// hide something are stored — a `.dontHide` exception is neutral and
         /// omitted, so an absent key means "apply the global toggles".
         let hideModes: [String: HideWindowsMode]
+        /// Apps whose known nonzero WindowServer-level rows are excluded.
+        let normalWindowOnlyBundleIDs: Set<String>
         let pinned: [String]
         let showMinimized: Bool
         let showHidden: Bool
@@ -35,23 +37,28 @@ enum CatalogFilter {
 
         /// No filtering and no reordering — lets callers skip work entirely.
         var isIdentity: Bool {
-            hideModes.isEmpty && pinned.isEmpty && showMinimized && showHidden && showWindowless && spaceScope == .allSpaces && sortOrder == .mru
+            hideModes.isEmpty && normalWindowOnlyBundleIDs.isEmpty && pinned.isEmpty && showMinimized && showHidden && showWindowless && spaceScope == .allSpaces && sortOrder == .mru
         }
     }
 
     nonisolated static func config() -> Config {
         let defaults = UserDefaults.standard
         var hideModes: [String: HideWindowsMode] = [:]
+        var normalWindowOnlyBundleIDs = Set<String>()
         if let raw = defaults.array(forKey: Preferences.Keys.appExceptions) as? [[String: String]] {
             for entry in raw {
                 guard let bid = entry["bundleID"], !bid.isEmpty else { continue }
                 let mode = entry["hide"].flatMap(HideWindowsMode.init) ?? .dontHide
                 if mode != .dontHide { hideModes[bid] = mode }
+                if entry["windowLevel"].flatMap(WindowLevelMode.init) == .normalOnly {
+                    normalWindowOnlyBundleIDs.insert(bid)
+                }
             }
         }
         let sortRaw = defaults.string(forKey: Preferences.Keys.sortOrder)
         return Config(
             hideModes: hideModes,
+            normalWindowOnlyBundleIDs: normalWindowOnlyBundleIDs,
             pinned: defaults.stringArray(forKey: Preferences.Keys.pinnedBundleIDs) ?? [],
             showMinimized: defaults.object(forKey: Preferences.Keys.showMinimizedWindows) as? Bool ?? true,
             showHidden: defaults.object(forKey: Preferences.Keys.showHiddenApps) as? Bool ?? true,
@@ -71,6 +78,7 @@ enum CatalogFilter {
     static func overlay(_ base: Config, _ ov: ShortcutOverride) -> Config {
         Config(
             hideModes: base.hideModes,
+            normalWindowOnlyBundleIDs: base.normalWindowOnlyBundleIDs,
             pinned: base.pinned,
             showMinimized: ov.showMinimized ?? base.showMinimized,
             showHidden: ov.showHidden ?? base.showHidden,
@@ -98,14 +106,15 @@ enum CatalogFilter {
         // phantomWindowOffsets). When that's impossible and the scope is all
         // Spaces, skip resolveSpaces entirely so a default-config reveal pays
         // zero WindowServer round-trips on the ⌘Tab hot path.
-        let spaces = needsSpaceResolution(rows, cfg)
-            ? resolveSpacesMemoized(rows, scope: cfg.spaceScope)
+        let levelFiltered = filterNonNormalWindowLevels(rows, for: cfg.normalWindowOnlyBundleIDs)
+        let spaces = needsSpaceResolution(levelFiltered, cfg)
+            ? resolveSpacesMemoized(levelFiltered, scope: cfg.spaceScope)
             : .unavailable
 
         // Drop Electron-style phantom windows first, unconditionally. These are
         // never-shown helper windows the user can't reach (not a preference), so
         // they're removed even under an identity config that skips the rest.
-        let phantomFiltered = filterPhantomWindows(rows, spaces)
+        let phantomFiltered = filterPhantomWindows(levelFiltered, spaces)
         if cfg.isIdentity { return phantomFiltered }
         // Flags rather than a filter: a rescued row has to slot back in at its
         // original index so MRU order survives. Only reached on a non-identity
@@ -139,6 +148,22 @@ enum CatalogFilter {
             filtered = filterToAllowedSpaces(filtered, spaces)
         }
         return filtered
+    }
+
+    /// For opted-in apps, keep level-0 windows and fail open when the snapshot
+    /// did not contain a level. Other apps and non-window rows are untouched.
+    static func filterNonNormalWindowLevels(
+        _ rows: [SwitcherRow],
+        for normalOnlyBundleIDs: Set<String>
+    ) -> [SwitcherRow] {
+        guard !normalOnlyBundleIDs.isEmpty else { return rows }
+        return rows.filter { row in
+            guard row.window != nil,
+                  let bundleID = row.bundleIdentifier,
+                  normalOnlyBundleIDs.contains(bundleID),
+                  let level = row.windowLevel else { return true }
+            return level == 0
+        }
     }
 
     /// Whether this reveal needs any WindowServer Space resolution. A narrowing

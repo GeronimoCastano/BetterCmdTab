@@ -742,24 +742,51 @@ enum IgnoreShortcutsMode: String, CaseIterable, Sendable {
     }
 }
 
+/// Per-app control over which WindowServer levels become switcher rows.
+/// Normal-only is deliberately opt-in: floating panels are useful windows in
+/// many apps, but some apps expose non-interactive overlay surfaces as windows.
+enum WindowLevelMode: String, CaseIterable, Sendable {
+    case all
+    case normalOnly
+
+    var displayName: String {
+        switch self {
+        case .all: return String(localized: "All windows")
+        case .normalOnly: return String(localized: "Normal only")
+        }
+    }
+}
+
 /// A per-app entry in the switcher's Exceptions list, identified by bundle ID.
-/// Carries the hide-windows and ignore-shortcuts overrides shown in the
+/// Carries the hide-windows, window-level, and ignore-shortcuts overrides shown in the
 /// Exceptions editor. Persisted as a `[String: String]` dictionary so both the
 /// main-actor `Preferences` and the off-main `CatalogFilter` can read it.
 struct AppException: Equatable, Sendable {
     var bundleID: String
     var hide: HideWindowsMode
     var ignore: IgnoreShortcutsMode
+    var windowLevel: WindowLevelMode
 
-    init(bundleID: String, hide: HideWindowsMode = .dontHide, ignore: IgnoreShortcutsMode = .never) {
+    init(
+        bundleID: String,
+        hide: HideWindowsMode = .dontHide,
+        ignore: IgnoreShortcutsMode = .never,
+        windowLevel: WindowLevelMode = .all
+    ) {
         self.bundleID = bundleID
         self.hide = hide
         self.ignore = ignore
+        self.windowLevel = windowLevel
     }
 
     /// Plist-friendly representation for UserDefaults.
     var dictionary: [String: String] {
-        ["bundleID": bundleID, "hide": hide.rawValue, "ignore": ignore.rawValue]
+        [
+            "bundleID": bundleID,
+            "hide": hide.rawValue,
+            "ignore": ignore.rawValue,
+            "windowLevel": windowLevel.rawValue,
+        ]
     }
 
     /// Parse one stored dictionary. Missing/unknown modes fall back to the
@@ -769,6 +796,7 @@ struct AppException: Equatable, Sendable {
         self.bundleID = bid
         self.hide = dictionary["hide"].flatMap(HideWindowsMode.init) ?? .dontHide
         self.ignore = dictionary["ignore"].flatMap(IgnoreShortcutsMode.init) ?? .never
+        self.windowLevel = dictionary["windowLevel"].flatMap(WindowLevelMode.init) ?? .all
     }
 }
 
