@@ -412,6 +412,7 @@ final class AppCatalogCache {
                     isRegularApp: app.activationPolicy == .regular,
                     expectedCGWindowIDs: cgSnapshot.ids(for: pid),
                     cgZOrder: cgSnapshot.zOrder(for: pid),
+                    windowLevels: cgSnapshot.levels(for: pid),
                     nonNormalLayerWids: cgSnapshot.nonNormalLayer(for: pid),
                     onscreenWids: cgSnapshot.onscreen(for: pid)
                 ), at: index)
@@ -731,6 +732,7 @@ final class AppCatalogCache {
                     isRegularApp: item.isRegular,
                     expectedCGWindowIDs: expected,
                     cgZOrder: cgSnapshot.zOrder(for: item.pid),
+                    windowLevels: cgSnapshot.levels(for: item.pid),
                     knownUncoverable: known,
                     nonNormalLayerWids: cgSnapshot.nonNormalLayer(for: item.pid),
                     onscreenWids: cgSnapshot.onscreen(for: item.pid)

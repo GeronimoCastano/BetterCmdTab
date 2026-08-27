@@ -24,6 +24,10 @@ final class AppsSettingsViewController: SettingsTabViewController {
         (.always, String(localized: "Always")),
         (.whenFullscreen, String(localized: "In full screen")),
     ]
+    private let windowLevelOptions: [(mode: WindowLevelMode, title: String)] = [
+        (.all, String(localized: "All windows")),
+        (.normalOnly, String(localized: "Normal only")),
+    ]
 
     private let rulesCard = SettingsSectionView()
 
@@ -172,15 +176,18 @@ final class AppsSettingsViewController: SettingsTabViewController {
             hide: exception.hide,
             ignore: exception.ignore,
             windowTitleContains: exception.windowTitleContains,
+            windowLevel: exception.windowLevel,
             showOptions: showOptions,
-            shortcutOptions: shortcutOptions
+            shortcutOptions: shortcutOptions,
+            windowLevelOptions: windowLevelOptions
         )
         let bundleID = exception.bundleID
-        row.onChange = { [weak self] hide, ignore, windowTitleContains in
+        row.onChange = { [weak self] hide, ignore, windowLevel, windowTitleContains in
             self?.updateRule(
                 bundleID: bundleID,
                 hide: hide,
                 ignore: ignore,
+                windowLevel: windowLevel,
                 windowTitleContains: windowTitleContains
             )
         }
@@ -200,11 +207,13 @@ final class AppsSettingsViewController: SettingsTabViewController {
         bundleID: String,
         hide: HideWindowsMode,
         ignore: IgnoreShortcutsMode,
+        windowLevel: WindowLevelMode,
         windowTitleContains: [String]
     ) {
         guard let idx = exceptions.firstIndex(where: { $0.bundleID == bundleID }) else { return }
         exceptions[idx].hide = hide
         exceptions[idx].ignore = ignore
+        exceptions[idx].windowLevel = windowLevel
         exceptions[idx].windowTitleContains = AppException.cleanedTitleFragments(windowTitleContains)
         persist()
     }

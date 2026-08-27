@@ -19,10 +19,26 @@ struct CatalogFilterTests {
         sinkMinimizedWindows: Bool = true
     ) -> CatalogFilter.Config {
         CatalogFilter.Config(
-            hideModes: hideModes, excludedTitleFragments: [:], pinned: pinned,
+            hideModes: hideModes, excludedTitleFragments: [:], normalWindowOnlyBundleIDs: [], pinned: pinned,
             showMinimized: showMinimized, showHidden: showHidden, showWindowless: showWindowless,
             spaceScope: spaceScope, sortOrder: sortOrder, sinkHiddenApps: sinkHiddenApps,
             sinkMinimizedWindows: sinkMinimizedWindows)
+    }
+
+    @Test("normal-only rules filter known nonzero levels for the selected app")
+    func normalWindowLevels() {
+        let app = NSRunningApplication.current
+        let bundleID = app.bundleIdentifier ?? ""
+        let rows = [
+            SwitcherRow(app: app, window: AXUIElementCreateSystemWide(), windowTitle: "Document", isMinimized: false, windowLevel: 0),
+            SwitcherRow(app: app, window: AXUIElementCreateSystemWide(), windowTitle: "Floating panel", isMinimized: false, windowLevel: 3),
+            SwitcherRow(app: app, window: AXUIElementCreateSystemWide(), windowTitle: "Snapshot race", isMinimized: false, windowLevel: nil),
+            SwitcherRow(app: app, window: nil, windowTitle: "", isMinimized: false),
+        ]
+
+        #expect(CatalogFilter.filterNonNormalWindowLevels(rows, for: ["com.other"]).count == 4)
+        let filtered = CatalogFilter.filterNonNormalWindowLevels(rows, for: [bundleID])
+        #expect(filtered.map(\.windowTitle) == ["Document", "Snapshot race", ""])
     }
 
     // MARK: - isIdentity

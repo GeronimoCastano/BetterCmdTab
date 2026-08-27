@@ -352,6 +352,9 @@ enum ConfigSchemaDocs {
                     "windowTitleContains": ConfigSettingDoc(
                         "array", "Case-insensitive title fragments. Matching windows are hidden while the app's other windows remain available.",
                         item: ConfigItemSchema("string", pattern: ".+")),
+                    "windowLevel": ConfigSettingDoc(
+                        "string", "Whether all app windows or only normal-level windows appear in the switcher.",
+                        values: ConfigValues(WindowLevelMode.self, \.displayName)),
                 ],
                 required: ["bundleID"])),
         "quickJumpMappings": ConfigSettingDoc(

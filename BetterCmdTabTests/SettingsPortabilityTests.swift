@@ -846,6 +846,7 @@ struct SettingsPortabilityTests {
         #expect(rule["additionalProperties"] as? Bool == false)
         #expect(ruleProperties["hide"]?["enum"] as? [String] == HideWindowsMode.allCases.map(\.rawValue))
         #expect(ruleProperties["ignore"]?["enum"] as? [String] == IgnoreShortcutsMode.allCases.map(\.rawValue))
+        #expect(ruleProperties["windowLevel"]?["enum"] as? [String] == WindowLevelMode.allCases.map(\.rawValue))
         let titleFragments = try #require(ruleProperties["windowTitleContains"])
         #expect(titleFragments["type"] as? String == "array")
         #expect((titleFragments["items"] as? [String: Any])?["type"] as? String == "string")

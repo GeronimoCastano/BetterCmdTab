@@ -289,6 +289,7 @@ struct PreferencesEnumTests {
             bundleID: "com.x",
             hide: .whenNoWindows,
             ignore: .whenFullscreen,
+            windowLevel: .normalOnly,
             windowTitleContains: ["Picture-in-Picture", " Inspector ", "picture-in-picture"]
         )
         #expect(original.windowTitleContains == ["Picture-in-Picture", "Inspector"])

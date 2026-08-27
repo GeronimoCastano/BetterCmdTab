@@ -19,6 +19,8 @@ enum CatalogFilter {
         /// Pre-folded, non-empty title fragments keyed by bundle ID. Empty for
         /// the common case, keeping the row-filter hot path allocation-free.
         let excludedTitleFragments: [String: [String]]
+        /// Apps whose known nonzero WindowServer-level rows are excluded.
+        let normalWindowOnlyBundleIDs: Set<String>
         let pinned: [String]
         let showMinimized: Bool
         let showHidden: Bool
@@ -38,7 +40,7 @@ enum CatalogFilter {
 
         /// No filtering and no reordering — lets callers skip work entirely.
         var isIdentity: Bool {
-            hideModes.isEmpty && excludedTitleFragments.isEmpty && pinned.isEmpty && showMinimized && showHidden && showWindowless && spaceScope == .allSpaces && sortOrder == .mru
+            hideModes.isEmpty && excludedTitleFragments.isEmpty && normalWindowOnlyBundleIDs.isEmpty && pinned.isEmpty && showMinimized && showHidden && showWindowless && spaceScope == .allSpaces && sortOrder == .mru
         }
     }
 
@@ -46,6 +48,7 @@ enum CatalogFilter {
         let defaults = UserDefaults.standard
         var hideModes: [String: HideWindowsMode] = [:]
         var excludedTitleFragments: [String: [String]] = [:]
+        var normalWindowOnlyBundleIDs = Set<String>()
         if let raw = defaults.array(forKey: Preferences.Keys.appExceptions) as? [[String: Any]] {
             for entry in raw {
                 guard let bid = entry["bundleID"] as? String, !bid.isEmpty else { continue }
@@ -54,12 +57,16 @@ enum CatalogFilter {
                 let fragments = AppException.cleanedTitleFragments(entry["windowTitleContains"] as? [String] ?? [])
                     .map { $0.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil) }
                 if !fragments.isEmpty { excludedTitleFragments[bid] = fragments }
+                if (entry["windowLevel"] as? String).flatMap(WindowLevelMode.init) == .normalOnly {
+                    normalWindowOnlyBundleIDs.insert(bid)
+                }
             }
         }
         let sortRaw = defaults.string(forKey: Preferences.Keys.sortOrder)
         return Config(
             hideModes: hideModes,
             excludedTitleFragments: excludedTitleFragments,
+            normalWindowOnlyBundleIDs: normalWindowOnlyBundleIDs,
             pinned: defaults.stringArray(forKey: Preferences.Keys.pinnedBundleIDs) ?? [],
             showMinimized: defaults.object(forKey: Preferences.Keys.showMinimizedWindows) as? Bool ?? true,
             showHidden: defaults.object(forKey: Preferences.Keys.showHiddenApps) as? Bool ?? true,
@@ -80,6 +87,7 @@ enum CatalogFilter {
         Config(
             hideModes: base.hideModes,
             excludedTitleFragments: base.excludedTitleFragments,
+            normalWindowOnlyBundleIDs: base.normalWindowOnlyBundleIDs,
             pinned: base.pinned,
             showMinimized: ov.showMinimized ?? base.showMinimized,
             showHidden: ov.showHidden ?? base.showHidden,
@@ -107,14 +115,15 @@ enum CatalogFilter {
         // phantomWindowOffsets). When that's impossible and the scope is all
         // Spaces, skip resolveSpaces entirely so a default-config reveal pays
         // zero WindowServer round-trips on the ⌘Tab hot path.
-        let spaces = needsSpaceResolution(rows, cfg)
-            ? resolveSpacesMemoized(rows, scope: cfg.spaceScope)
+        let levelFiltered = filterNonNormalWindowLevels(rows, for: cfg.normalWindowOnlyBundleIDs)
+        let spaces = needsSpaceResolution(levelFiltered, cfg)
+            ? resolveSpacesMemoized(levelFiltered, scope: cfg.spaceScope)
             : .unavailable
 
         // Drop Electron-style phantom windows first, unconditionally. These are
         // never-shown helper windows the user can't reach (not a preference), so
         // they're removed even under an identity config that skips the rest.
-        let phantomFiltered = filterPhantomWindows(rows, spaces)
+        let phantomFiltered = filterPhantomWindows(levelFiltered, spaces)
         let titleFiltered = filterExcludedWindowTitles(phantomFiltered, cfg.excludedTitleFragments)
         if cfg.isIdentity { return titleFiltered }
         // Flags rather than a filter: a rescued row has to slot back in at its
@@ -167,6 +176,22 @@ enum CatalogFilter {
                   !fragments.isEmpty else { return true }
             let title = row.windowTitle.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
             return !fragments.contains { title.contains($0) }
+        }
+    }
+
+    /// For opted-in apps, keep level-0 windows and fail open when the snapshot
+    /// did not contain a level. Other apps and non-window rows are untouched.
+    static func filterNonNormalWindowLevels(
+        _ rows: [SwitcherRow],
+        for normalOnlyBundleIDs: Set<String>
+    ) -> [SwitcherRow] {
+        guard !normalOnlyBundleIDs.isEmpty else { return rows }
+        return rows.filter { row in
+            guard row.window != nil,
+                  let bundleID = row.bundleIdentifier,
+                  normalOnlyBundleIDs.contains(bundleID),
+                  let level = row.windowLevel else { return true }
+            return level == 0
         }
     }
 

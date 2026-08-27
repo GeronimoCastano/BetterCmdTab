@@ -9,6 +9,11 @@ struct WindowInfo {
     /// identity across AX element churn — used for z-order ranking, MRU, and
     /// matching a window across refreshes without re-querying `_AXUIElementGetWindow`.
     let cgWindowID: CGWindowID
+    /// WindowServer level captured in the same snapshot that supplied the id.
+    /// Nil when the window was absent from that snapshot (for example, during
+    /// a creation/destruction race), so filters can fail open rather than hide
+    /// a window whose level is unknown.
+    let windowLevel: Int?
     let title: String
     let isMinimized: Bool
     let isFullscreen: Bool
@@ -33,6 +38,7 @@ struct WindowInfo {
     init(
         ref: AXUIElement,
         cgWindowID: CGWindowID = 0,
+        windowLevel: Int? = nil,
         title: String,
         isMinimized: Bool,
         isFullscreen: Bool = false,
@@ -42,6 +48,7 @@ struct WindowInfo {
     ) {
         self.ref = ref
         self.cgWindowID = cgWindowID
+        self.windowLevel = windowLevel
         self.title = title
         self.isMinimized = isMinimized
         self.isFullscreen = isFullscreen
@@ -80,6 +87,9 @@ struct AXRef: Hashable {
 struct CGWindowSnapshot {
     let ids: [pid_t: Set<CGWindowID>]
     let zOrder: [pid_t: [CGWindowID]]
+    /// WindowServer level for every reported window, including entries later
+    /// excluded from the normal id/z-order hint by size or transparency.
+    let levels: [pid_t: [CGWindowID: Int]]
     /// Wids WindowServer reports at a non-switchable window level — Dock level
     /// (20) and above (menus, status items, pop-ups, overlays, HUDs, notification
     /// panels, screensaver) plus the sub-normal desktop band (< 0). Dropped during
@@ -93,10 +103,11 @@ struct CGWindowSnapshot {
     /// builds where AppKit lists background tabs in `kAXWindowsAttribute`.
     let onscreen: [pid_t: Set<CGWindowID>]
 
-    static let empty = CGWindowSnapshot(ids: [:], zOrder: [:], nonNormalLayer: [:], onscreen: [:])
+    static let empty = CGWindowSnapshot(ids: [:], zOrder: [:], levels: [:], nonNormalLayer: [:], onscreen: [:])
 
     func ids(for pid: pid_t) -> Set<CGWindowID> { ids[pid] ?? [] }
     func zOrder(for pid: pid_t) -> [CGWindowID] { zOrder[pid] ?? [] }
+    func levels(for pid: pid_t) -> [CGWindowID: Int] { levels[pid] ?? [:] }
     func nonNormalLayer(for pid: pid_t) -> Set<CGWindowID> { nonNormalLayer[pid] ?? [] }
     func onscreen(for pid: pid_t) -> Set<CGWindowID> { onscreen[pid] ?? [] }
 }
@@ -198,6 +209,7 @@ enum WindowEnumerator {
         }
         var ids: [pid_t: Set<CGWindowID>] = [:]
         var zOrder: [pid_t: [CGWindowID]] = [:]
+        var levels: [pid_t: [CGWindowID: Int]] = [:]
         var nonNormalLayer: [pid_t: Set<CGWindowID>] = [:]
         var onscreen: [pid_t: Set<CGWindowID>] = [:]
         // Read once for the whole snapshot, not per window.
@@ -207,6 +219,7 @@ enum WindowEnumerator {
             guard let widNum = entry[kCGWindowNumber as String] as? Int else { continue }
             let wid = CGWindowID(widNum)
             let layer = (entry[kCGWindowLayer as String] as? Int) ?? 0
+            levels[ownerPID, default: [:]][wid] = layer
             let alpha = (entry[kCGWindowAlpha as String] as? Double) ?? 1.0
             // Missing bounds key => treat as large enough, preserving the prior
             // "no bounds -> keep" behavior. A present-but-empty bounds dict yields
@@ -231,7 +244,7 @@ enum WindowEnumerator {
                 break
             }
         }
-        return CGWindowSnapshot(ids: ids, zOrder: zOrder, nonNormalLayer: nonNormalLayer, onscreen: onscreen)
+        return CGWindowSnapshot(ids: ids, zOrder: zOrder, levels: levels, nonNormalLayer: nonNormalLayer, onscreen: onscreen)
     }
 
     /// Back-compat entry point for the cold full-catalog paths (`AppCatalog`,
@@ -244,6 +257,7 @@ enum WindowEnumerator {
         isRegularApp: Bool = true,
         expectedCGWindowIDs: Set<CGWindowID> = [],
         cgZOrder: [CGWindowID] = [],
+        windowLevels: [CGWindowID: Int] = [:],
         nonNormalLayerWids: Set<CGWindowID> = [],
         onscreenWids: Set<CGWindowID> = []
     ) -> [WindowInfo] {
@@ -252,6 +266,7 @@ enum WindowEnumerator {
             isRegularApp: isRegularApp,
             expectedCGWindowIDs: expectedCGWindowIDs,
             cgZOrder: cgZOrder,
+            windowLevels: windowLevels,
             nonNormalLayerWids: nonNormalLayerWids,
             onscreenWids: onscreenWids
         ).windows
@@ -293,6 +308,7 @@ enum WindowEnumerator {
         isRegularApp: Bool = true,
         expectedCGWindowIDs: Set<CGWindowID> = [],
         cgZOrder: [CGWindowID] = [],
+        windowLevels: [CGWindowID: Int] = [:],
         knownUncoverable: Set<CGWindowID> = [],
         nonNormalLayerWids: Set<CGWindowID> = [],
         onscreenWids: Set<CGWindowID> = []
@@ -458,6 +474,7 @@ enum WindowEnumerator {
         struct RawWindow {
             let element: AXUIElement
             let cgWindowID: CGWindowID
+            let windowLevel: Int?
             let tabs: [AXUIElement]
             let minimized: Bool
             let fullscreen: Bool
@@ -488,9 +505,11 @@ enum WindowEnumerator {
             // real off-Space fullscreen window into an unrelated row (issue #10).
             let frame = (minimized || fullscreen) ? nil : frameFromAttributes(values[5], values[6])
 
+            let cgWindowID = widByElement[AXRef(element: window)] ?? 0
             raws.append(RawWindow(
                 element: window,
-                cgWindowID: widByElement[AXRef(element: window)] ?? 0,
+                cgWindowID: cgWindowID,
+                windowLevel: windowLevels[cgWindowID],
                 tabs: tabs,
                 minimized: minimized,
                 fullscreen: fullscreen,
@@ -556,6 +575,7 @@ enum WindowEnumerator {
             infos.append(WindowInfo(
                 ref: raw.element,
                 cgWindowID: raw.cgWindowID,
+                windowLevel: raw.windowLevel,
                 title: raw.title,
                 isMinimized: raw.minimized,
                 isFullscreen: raw.fullscreen,

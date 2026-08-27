@@ -10,19 +10,22 @@ final class AppRuleRowView: NSView {
 
     let bundleID: String
 
-    /// Fired after either popup changes, with the row's new modes.
-    var onChange: ((HideWindowsMode, IgnoreShortcutsMode, [String]) -> Void)?
+    /// Fired after any popup changes, with the row's new modes.
+    var onChange: ((HideWindowsMode, IgnoreShortcutsMode, WindowLevelMode, [String]) -> Void)?
     /// Fired when the remove button is clicked.
     var onRemove: (() -> Void)?
 
     private let showOptions: [(mode: HideWindowsMode, title: String)]
     private let shortcutOptions: [(mode: IgnoreShortcutsMode, title: String)]
+    private let windowLevelOptions: [(mode: WindowLevelMode, title: String)]
     private var hide: HideWindowsMode
     private var ignore: IgnoreShortcutsMode
     private var windowTitleContains: [String]
+    private var windowLevel: WindowLevelMode
 
     private let showPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let shortcutPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+    private let windowLevelPopup = NSPopUpButton(frame: .zero, pullsDown: false)
     private let titleTokens = NSTokenField()
     private let iconView = NSImageView()
     private let nameLabel = NSTextField(labelWithString: "")
@@ -41,15 +44,19 @@ final class AppRuleRowView: NSView {
         hide: HideWindowsMode,
         ignore: IgnoreShortcutsMode,
         windowTitleContains: [String],
+        windowLevel: WindowLevelMode,
         showOptions: [(mode: HideWindowsMode, title: String)],
-        shortcutOptions: [(mode: IgnoreShortcutsMode, title: String)]
+        shortcutOptions: [(mode: IgnoreShortcutsMode, title: String)],
+        windowLevelOptions: [(mode: WindowLevelMode, title: String)]
     ) {
         self.bundleID = bundleID
         self.hide = hide
         self.ignore = ignore
         self.windowTitleContains = windowTitleContains
+        self.windowLevel = windowLevel
         self.showOptions = showOptions
         self.shortcutOptions = shortcutOptions
+        self.windowLevelOptions = windowLevelOptions
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
         build(name: name, icon: icon)
@@ -76,6 +83,9 @@ final class AppRuleRowView: NSView {
         configure(shortcutPopup, titles: shortcutOptions.map(\.title), selected: shortcutOptions.firstIndex { $0.mode == ignore } ?? 0, action: #selector(shortcutChanged))
         shortcutPopup.toolTip = String(localized: "Pass ⌘Tab through to the app instead of opening the switcher — for apps with their own window switching (virtual machines, remote desktop, some games).")
 
+        configure(windowLevelPopup, titles: windowLevelOptions.map(\.title), selected: windowLevelOptions.firstIndex { $0.mode == windowLevel } ?? 0, action: #selector(windowLevelChanged))
+        windowLevelPopup.toolTip = String(localized: "Choose whether floating panels and overlay surfaces from this app appear in the switcher.")
+
         titleTokens.controlSize = .small
         titleTokens.font = .systemFont(ofSize: 11)
         titleTokens.placeholderString = String(localized: "Add title fragments…")
@@ -100,13 +110,15 @@ final class AppRuleRowView: NSView {
         removeButton.setContentHuggingPriority(.required, for: .horizontal)
 
         let showGroup = captionedControl(String(localized: "Show"), info: Self.showInfo, showPopup)
+        let windowLevelGroup = captionedControl(String(localized: "Windows"), info: Self.windowLevelInfo, windowLevelPopup)
         let shortcutGroup = captionedControl("⌘Tab", info: Self.shortcutInfo, shortcutPopup)
 
-        let top = NSStackView(views: [iconView, nameLabel, NSView(), showGroup, shortcutGroup, removeButton])
+        let top = NSStackView(views: [iconView, nameLabel, NSView(), showGroup, windowLevelGroup, shortcutGroup, removeButton])
         top.orientation = .horizontal
         top.alignment = .centerY
         top.spacing = 10
         top.setCustomSpacing(14, after: showGroup)
+        top.setCustomSpacing(14, after: windowLevelGroup)
 
         let titleGroup = captionedControl(String(localized: "Hide titles containing"), info: Self.titleInfo, titleTokens)
         let stack = NSStackView(views: [top, titleGroup])
@@ -169,6 +181,8 @@ final class AppRuleRowView: NSView {
         String(localized: "Lets the app keep ⌘Tab for itself: the chord is passed through to the app instead of opening the switcher. Useful for apps with their own window switching — virtual machines, remote desktop, some games.\n\n• Never — the switcher always opens.\n• Always — the app keeps ⌘Tab whenever it's focused.\n• In full screen — only while the app is in full screen.")
     private static let titleInfo =
         String(localized: "Hide only windows whose title contains one of these phrases. Matching ignores capitalization and accents; the app's other windows remain available. Press Return or type a comma after each phrase.")
+    private static let windowLevelInfo =
+        String(localized: "Controls which kinds of windows appear for this app.\n\n• All windows — includes normal windows and floating panels.\n• Normal only — hides known floating panels and overlay surfaces while keeping ordinary windows. Unknown window levels remain visible.")
 
     // MARK: - Actions
 
@@ -198,8 +212,15 @@ final class AppRuleRowView: NSView {
         notifyChange()
     }
 
+    @objc private func windowLevelChanged() {
+        let idx = windowLevelPopup.indexOfSelectedItem
+        guard windowLevelOptions.indices.contains(idx) else { return }
+        windowLevel = windowLevelOptions[idx].mode
+        notifyChange()
+    }
+
     private func notifyChange() {
-        onChange?(hide, ignore, windowTitleContains)
+        onChange?(hide, ignore, windowLevel, windowTitleContains)
     }
 
     @objc private func removeClicked() {
