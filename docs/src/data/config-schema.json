@@ -48,6 +48,18 @@
               "When fullscreen"
             ],
             "type" : "string"
+          },
+          "windowLevel" : {
+            "description" : "Whether all app windows or only normal-level windows appear in the switcher.",
+            "enum" : [
+              "all",
+              "normalOnly"
+            ],
+            "enumDescriptions" : [
+              "All windows",
+              "Normal only"
+            ],
+            "type" : "string"
           }
         },
         "required" : [
